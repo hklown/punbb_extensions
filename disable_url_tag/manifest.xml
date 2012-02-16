@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<extension engine="1.0">
+	<id>disable_url_tag</id>
+	<title>Disable [url] tag</title>
+	<version>1.0.2</version>
+	<description>
+		Disables parsing of the [url] tag for non-administrators/moderators.
+	</description>
+	<author>Eliot Friedman</author>
+	<minversion>1.4.0</minversion>
+	<maxtestedon>1.4.0</maxtestedon>
+	<install>
+		<![CDATA[
+		// Fresh install
+		if (!defined('EXT_CUR_VERSION'))
+		{
+		
+		}
+		]]>
+	</install>
+	<uninstall>
+		<![CDATA[
+		
+		]]>
+	</uninstall>
+	<hooks>
+		<!-- Load the helper functions at the start of the forum -->
+		<hook id="es_essentials">
+			<![CDATA[
+				require_once($ext_info['path'].'/include/functions.php');
+			]]>
+		</hook>
+	
+		<!-- Check to see if the last editor of this post is an administrator
+		     or a moderator of the current form -->
+		<hook id="vt_row_pre_post_actions_merge">
+			<![CDATA[
+				$allow_url_tag = false;
+			
+				if ( $cur_post['edited_by'] != NULL )
+					$post_last_modified_by = $cur_post['edited_by'];
+				else
+					$post_last_modified_by = $cur_post['username'];
+				
+				// only allow URLS if the last editor of the post is a moderator,
+				// the last editor was an admin, or the author is an admin
+				if ( array_key_exists( $post_last_modified_by, $mods_array )
+					|| $cur_post['editors_gid'] == FORUM_ADMIN 
+					|| ( $cur_post['editors_gid'] == NULL && $cur_post['g_id'] == FORUM_ADMIN ) )
+					$allow_url_tag = true;
+					
+				if ( !$allow_url_tag )
+					$cur_post['message'] = StripURLTags( $cur_post['message'] );
+			]]>
+		</hook>
+		
+		<!-- Get the group_id of the person who last edited a given post
+		     (to see if they're an admin or not ) -->
+		<hook id="vt_qr_get_posts">
+			<![CDATA[
+			if ($forum_user['g_id'] == FORUM_ADMIN)
+			{
+				$query['SELECT'] .= ' ,eu.group_id AS editors_gid';
+				$query['JOINS'][] =
+					array(
+						'LEFT JOIN'	=> 'users AS eu',
+						'ON'		=> 'eu.username=p.edited_by'
+					);
+			}
+			]]>
+		</hook>
+		
+		<!-- when searching posts, amend the search query to get the extra
+		      info we need to filter the URL tag in the results -->
+		<hook id="sf_fn_generate_cached_search_query_qr_get_cached_hits_as_posts">
+			<![CDATA[
+				$query['SELECT'] .= ' ,f.moderators, u.group_id AS pposter_group_id';
+				$query['JOINS'][] = array
+				(
+					'LEFT JOIN'	=> 'users AS u',
+					'ON'		=> 'p.poster_id = u.id'
+				);
+			]]>
+		</hook>
+		
+		<!-- when searching through a users posts, amend the query to get
+		     the extra info we need to filter the URL tag in their posts -->
+		<hook id="sf_fn_generate_action_search_query_qr_get_user_posts">
+			<![CDATA[
+				$query['SELECT'] .= ' ,f.moderators, u.group_id AS pposter_group_id';
+				$query['JOINS'][] = array
+				(
+					'LEFT JOIN'	=> 'users AS u',
+					'ON'		=> 'p.poster_id = u.id'
+				);
+			]]>
+		</hook>
+		
+		<!-- strip the URL tag from posts in search resutls if necessary -->
+		<hook id="se_results_posts_row_pre_item_ident_merge">
+			<![CDATA[			
+				$allow_url_tags = false;
+
+				if ( isset( $cur_set['moderators'] ) )
+					if ( strpos( $cur_set['moderators'], $cur_set['pposter'] ) != false )
+						$allow_url_tags = true;
+
+				if ( $cur_set['pposter_group_id'] == FORUM_ADMIN )
+					$allow_url_tags = true;
+				
+				if ( !$allow_url_tags )
+					$cur_set['message'] = StripURLTags( $cur_set['message'] );
+			]]>
+		</hook>
+	</hooks>
+</extension>

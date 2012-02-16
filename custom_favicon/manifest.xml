@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<extension engine="1.0">
+	<id>custom_favicon</id>
+	<title>Custom Favicon</title>
+	<version>1.0.3</version>
+	<description>Allows you to specify a custom favicon that is displayed on all forum pages.</description>
+	<author>Eliot Friedman</author>
+	<minversion>1.4.0</minversion>
+	<maxtestedon>1.4.0</maxtestedon>
+	<install>
+		<!--Insert a row to store the url of the favicon in the config table-->
+        <![CDATA[
+            if (!isset($forum_config['o_favicon_url']))
+            {
+				$query = array(
+					'INSERT'    => 'conf_name, conf_value',
+					'INTO'      => 'config',
+					'VALUES'    => '\'o_favicon_url\', \'\''
+				);
+				$forum_db->query_build($query) or error(__FILE__, __LINE__);
+			}
+        ]]> 
+    </install>
+    <uninstall>
+		<!--Remove the favicon url from the config table-->
+        <![CDATA[
+			$query = array(
+                'DELETE'    => 'config',
+                'WHERE'     => 'conf_name = \'o_favicon_url\''
+            );
+            $forum_db->query_build($query) or error(__FILE__, __LINE__);
+        ]]>
+    </uninstall>
+	<hooks>
+		<!--Add a tag to render the favicon if it's set-->
+		<hook id="hd_head, fn_redirect_head"><![CDATA[
+			if (isset($forum_config['o_favicon_url']))
+				if ($forum_config['o_favicon_url'] != '')
+					$forum_head['favicon'] = '<link rel="shortcut icon" href="'.$forum_config['o_favicon_url'].'" />';
+		]]></hook>
+		
+		<!--Add a textbox for setting the favicon url to the admin forum settings page-->
+		<hook id="aop_setup_pre_personal_fieldset_end"><![CDATA[
+			// LANG INCLUDE
+			if (file_exists($ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php'))
+				include $ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php';
+			else
+				include $ext_info['path'].'/lang/English/'.$ext_info['id'].'.php';
+				
+			// Add a text option to the bottom of the first section of
+			// the main settings page for the forum's favicon URL.
+			?>
+					<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+						<div class="sf-box text">
+							<label for="fld<?php echo ++$forum_page['fld_count'] ?>">
+								<span><?php echo $lang_custom_favicon['Favicon URL label'] ?></span><small><?php echo $lang_custom_favicon['Favicon URL help'] ?></small></label><br />
+							</label><br />
+							<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[favicon_url]" size="50" maxlength="255" value="<?php echo forum_htmlencode($forum_config['o_favicon_url']) ?>" /></span>
+						</div>
+					</div>
+			<?php
+		]]></hook>
+	</hooks>
+</extension>

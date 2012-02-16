@@ -1,0 +1,55 @@
+.ratingPositive
+{
+	color: #00FF00;
+}
+
+.ratingNeutral
+{
+	color: grey;
+}
+
+.ratingNegative
+{
+	color: #FF0000;
+}
+
+div.byline
+{
+	font-size: xx-small;
+	font-weight: bold;
+	font-style: italic;
+	text-align: right;
+	width: 100%;
+}
+
+div.byline
+a:hover,
+a:visited,
+a:link
+{
+	text-decoration: none;
+}
+
+div.qotdTitlebar
+{
+	border-bottom: 1px dashed grey;
+	margin-bottom: 5px;
+	overflow: auto;
+	width: 100%;
+}
+
+p.alignleft
+{
+	float: left;
+}
+
+p.alignright
+{
+	float: right;
+}
+
+p.qotdTitle
+{
+	font-weight: bold;
+	font-size: 110%;
+}

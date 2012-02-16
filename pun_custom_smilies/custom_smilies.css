@@ -1,0 +1,34 @@
+div#smilies
+{
+	padding-left: 15px;
+}
+
+span#smileyCategory
+{
+	font-weight: bold;
+}
+
+span#smileyReplaceText
+{
+	font-family: Courier;
+	display: block;
+	margin-bottom: 10px;
+}
+
+div#smileyBox:hover
+{
+	background-color: grey;
+	color: black;
+}
+
+div#smileyBox
+{
+	min-height: 75px;
+	width: 95px;
+	height: 80px;
+	margin: 4px 3px;
+	overflow: hidden;
+	text-align: center;
+	border: 1px solid grey;
+	display: inline-block;
+}

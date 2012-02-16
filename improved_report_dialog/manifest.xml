@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<extension engine="1.0">
+	<id>improved_report_dialog</id>
+	<title>Improved Post Report Dialog</title>
+	<version>1.0.0</version>
+	<description>Adds several features to the "report post" dialog.</description>
+	<author>Eliot Friedman</author>
+	<minversion>1.4.1</minversion>
+	<maxtestedon>1.4.1</maxtestedon>
+	<hooks>
+		<!-- if we're on the report page, include the extension stylesheets -->
+		<hook id="hd_head">
+			<![CDATA[
+				if (FORUM_PAGE == 'report')
+					if ($forum_user['style'] != 'Oxygen' && file_exists($ext_info['path'].'/style/'.$forum_user['style'].'/style.css'))
+						$forum_loader->add_css($ext_info['url'].'/style/'.$forum_user['style'].'/style.css', array('type' => 'url'));
+					else
+						$forum_loader->add_css($ext_info['url'].'/style/Oxygen/style.css', array('type' => 'url'));
+			]]>
+		</hook>
+		
+		<!-- get information about the post we're reporting -->
+		<hook id="mi_report_pre_header_load">
+			<![CDATA[
+				$query = array(
+								'SELECT'	=> 'u.email, u.title, u.url, u.location, u.signature, u.email_setting, u.num_posts, u.registered, u.admin_note, u.avatar, u.avatar_width, u.avatar_height, p.id, p.poster AS username, p.poster_id, p.poster_ip, p.poster_email, p.message, p.hide_smilies, p.posted, p.edited, p.edited_by, g.g_id, g.g_user_title',
+								'FROM'		=> 'posts AS p',
+								'JOINS'		=> array(
+									array(
+										'INNER JOIN'	=> 'users AS u',
+										'ON'			=> 'u.id=p.poster_id'
+									),
+									array(
+										'INNER JOIN'	=> 'groups AS g',
+										'ON'			=> 'g.g_id=u.group_id'
+									)
+								),
+								'WHERE'		=> 'p.id='.$post_id
+							  );
+				($hook = get_hook('mi_report_qr_get_topic_data_for_display')) ? eval($hook) : null;
+				$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+				$post_info = $forum_db->fetch_assoc($result);
+			]]>
+		</hook>
+		
+		<!-- display the body of the post we're reporting above the reason box -->
+		<hook id="mi_report_pre_fieldset">
+			<![CDATA[
+					if (!defined('FORUM_PARSER_LOADED'))
+						require FORUM_ROOT.'include/parser.php';
+					
+					$post_data = array();
+					
+					// Generate post identity data
+					$post_data['post_ident']['num'] = "<span class=\"post-num\">#$post_id</span>";
+					$post_data['post_ident']['timestamp'] = '<span class="post-link">' . format_time( $post_info['posted'] ) . '</span>';
+					$post_data['post_ident']['byline'] = '<span class="post-byline"><strong>' . $post_info['username'] . '</strong></span>';
+					
+					// Generate post author identity data
+					if ( $forum_config['o_avatars'] == '1' && $forum_user['show_avatars'] != '0' && $post_info['poster_id'] > 1 )
+					{
+						$avatar_markup = generate_avatar_markup($post_info['poster_id'], $post_info['avatar'], $post_info['avatar_width'], $post_info['avatar_height'], $post_info['username']);
+						if ( !empty($avatar_markup) )
+							$post_data['author_ident']['avatar'] = $avatar_markup;
+					}
+					$post_data['author_ident']['username'] = '<li class="username"><strong>'.forum_htmlencode($post_info['username']).'</strong></li>';
+					$post_data['author_ident']['usertitle'] = '<li class="usertitle"><span>'.get_title($post_info).'</span></li>';
+
+					$post_data['author_info'] = array();
+
+					$reported_message = parse_message( $post_info['message'], false );
+				?>	
+					<div class="ct-group reportedPostContainer">
+						<div class="post noEdge">
+							<div id="p<?php echo $post_id ?>" class="posthead">
+								<h3 class="hn post-ident"><?php echo implode(' ', $post_data['post_ident']) ?></h3>
+							</div>
+							<div class="postbody">
+								<div class="post-author">
+									<ul class="author-ident">
+										<?php echo implode("\n\t\t\t\t\t\t", $post_data['author_ident'])."\n" ?>
+									</ul>
+									<ul class="author-info">
+										<?php echo implode("\n\t\t\t\t\t\t", $post_data['author_info'])."\n" ?>
+									</ul>
+								</div>
+								<div class="post-entry">
+									<div class="entry-content">
+										<?php echo $reported_message."\n" ?>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				<?php
+			]]>
+		</hook>
+	</hooks>
+</extension>

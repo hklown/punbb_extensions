@@ -1,0 +1,45 @@
+.book-bbcode-error
+{
+    color: #FF3333;
+}
+
+span.tooltip
+{
+    position: relative;
+    border-bottom: 1px dotted #BBBBBB;
+    outline: none;
+    cursor: help;
+    text-decoration: none;
+}
+
+span.tooltip:hover:after
+{
+    content: attr(tooltip);
+
+    background: #FFFFAA;
+    border: 1px solid #FFAD33;
+    
+    position: absolute;
+    padding: 5px;
+    top: 30px;
+    left: 60%;
+    
+    white-space: pre;
+
+    font-family: sans-serif;
+    font-weight: bold;
+    color: black;
+    
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+    box-shadow: 5px 5px 5px rgba(0, 0, 0, 0.1);
+    -webkit-box-shadow: 5px 5px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 5px 5px rgba(0, 0, 0, 0.1);
+}
+
+span.tooltip.warning:hover:after
+{
+    background: #FFCCAA;
+    border: 1px solid #FF3334;
+}

@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<extension engine="1.0">
+	<id>quote_of_the_day</id>
+	<title>Quote of the Day</title>
+	<version>1.1.6</version>
+	<description>Adds a daily quote of the day to the top of the main forums page.</description>
+	<author>Eliot Friedman</author>
+	<minversion>1.4.0</minversion>
+	<maxtestedon>1.4.0</maxtestedon>
+    <install>
+        <![CDATA[
+			if (!defined('EXT_CUR_VERSION'))
+			{
+				// create quotes table
+				$schema = array
+				(
+					'FIELDS'    => array
+					(
+						'id'			=> array(
+							'datatype'		=> 'SERIAL',
+							'allow_null'	=> false
+						),
+						'timestamp'		=> array(
+							'datatype'      => 'INT',
+							'allow_null'    => false
+						),
+						'submitter_id'	=> array(
+							'datatype'		=> 'INT(10)',
+							'allow_null'	=> false
+						),
+						'quote'			=> array(
+							'datatype'		=> 'TEXT',
+							'allow_null'	=> false
+						),
+						'rating'		=> array(
+							'datatype'		=> 'INT(11)',
+							'allow_null'	=> false,
+							'default'		=> 0
+						)
+					),
+					'PRIMARY KEY'   => array('id')
+				);
+				$forum_db->create_table( 'qotd_quotes', $schema );
+
+				// Add current quote and next update time to config table
+				$query = array(
+					'INSERT'    => 'conf_name, conf_value',
+					'INTO'      => 'config',
+					'VALUES'    => '\'o_qotd_quote_id\', \'12\''
+				);
+				$forum_db->query_build($query) or error(__FILE__, __LINE__);
+				$query = array(
+					'INSERT'    => 'conf_name, conf_value',
+					'INTO'      => 'config',
+					'VALUES'    => '\'o_qotd_next_update\', \''.mktime(0, 0, 0).'\''
+				);
+				$forum_db->query_build($query) or error(__FILE__, __LINE__);
+				
+				// Add fields to user table for QOTD visibility
+				$forum_db->add_field('users', 'qotd_display_type', "ENUM('ALWAYS', 'ONCE', 'NEVER')", false, 'ALWAYS');
+				$forum_db->add_field('users', 'qotd_seen', 'BOOL', false, 0);
+			}
+			// upgrade from v1.1.0
+			else if (EXT_CUR_VERSION == '1.1.0')
+			{
+				// create quotes table
+				$schema = array
+				(
+					'FIELDS'    => array
+					(
+						'id'			=> array(
+							'datatype'		=> 'SERIAL',
+							'allow_null'	=> false
+						),
+						'timestamp'		=> array(
+							'datatype'      => 'INT',
+							'allow_null'    => false
+						),
+						'submitter_id'	=> array(
+							'datatype'		=> 'INT(10)',
+							'allow_null'	=> false
+						),
+						'quote'			=> array(
+							'datatype'		=> 'TEXT',
+							'allow_null'	=> false
+						),
+						'rating'		=> array(
+							'datatype'		=> 'INT(11)',
+							'allow_null'	=> false,
+							'default'		=> 0
+						)
+					),
+					'PRIMARY KEY'   => array('id')
+				);
+				$forum_db->create_table( 'qotd_quotes', $schema );
+			}
+        ]]> 
+    </install>
+    <uninstall>
+        <![CDATA[
+            $query = array(
+                'DELETE'    => 'config',
+                'WHERE'     => 'conf_name = \'o_qotd_quote_id\''
+            );
+            $forum_db->query_build($query) or error(__FILE__, __LINE__);
+            
+            $query = array(
+                'DELETE'    => 'config',
+                'WHERE'     => 'conf_name = \'o_qotd_next_update\''
+            );
+            $forum_db->query_build($query) or error(__FILE__, __LINE__);
+            
+            $forum_db->drop_field('users', 'qotd_display_type');
+            $forum_db->drop_field('users', 'qotd_seen');
+            
+            $forum_db->drop_table('qotd_quotes')
+        ]]>
+    </uninstall>
+	<hooks>
+		<!-- include the functions we need for the quote of the day and check to see if we have to update the quote -->
+        <hook id="hd_head">
+			<![CDATA[
+				if ( FORUM_PAGE == 'index' )
+				{
+					// INCLUDE CSS
+					if ($forum_user['style'] != 'Oxygen' && file_exists($ext_info['path'].'/style/'.$forum_user['style'].'/style.css'))
+						$forum_loader->add_css($ext_info['url'].'/style/'.$forum_user['style'].'/style.css', array('type' => 'url'));
+					else
+						$forum_loader->add_css($ext_info['url'].'/style/Oxygen/style.css', array('type' => 'url'));
+					
+					// LANG INCLUDE
+					if (file_exists($ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php'))
+						include $ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php';
+					else
+						include $ext_info['path'].'/lang/English/'.$ext_info['id'].'.php';
+					
+					require_once $ext_info['path'].'/include/functions.php';
+					
+					checkForUpdate();
+				}
+			]]>
+		</hook>
+		
+		<!-- check to see if the user should see the quote of the day, and if so show it to them -->
+        <hook id='hd_gen_elements'>
+			<![CDATA[
+				if ( FORUM_PAGE == 'index' )
+				{
+					$showQOTD = TRUE;
+					
+					// don't do anything if the user doesn't want to see the
+					// quote of the day, or has it set to "ONCE" and has already seen it
+					if ($forum_user['qotd_display_type'] == "NEVER")
+						$showQOTD = FALSE;
+					if ($forum_user['qotd_display_type'] == "ONCE" && $forum_user['qotd_seen'] == '1')
+						$showQOTD = FALSE;
+					
+					if ( $showQOTD )
+					{
+						$gen_elements['<!-- forum_announcement -->'] .= generateQOTDDisplay();
+						
+						// mark the quote of the day as seen
+						if ($forum_user['qotd_seen'] != '1')
+							flagQOTDAsSeen($forum_user['id']);
+					}
+				}
+			]]>
+		</hook>
+		
+		<!-- data validate the user's option for the QOTD visibility type -->
+		<hook id="pf_change_details_settings_validation">
+			<![CDATA[
+				if ( !isset($_POST['form']['qotd_display_type']) || ($_POST['form']['qotd_display_type'] != 'ALWAYS' && $_POST['form']['qotd_display_type'] != 'ONCE' && $_POST['form']['qotd_display_type'] != 'NEVER') )
+					$form['qotd_display_type'] = 'ALWAYS';
+				else
+					$form['qotd_display_type'] = $_POST['form']['qotd_display_type'];
+			]]>
+		</hook>
+		
+		<!-- Add an option to the user CP to choose how frequently the QOTD
+		     is displayed -->
+		<hook id="pf_change_details_settings_email_fieldset_end">
+			<![CDATA[
+				// LANG INCLUDE
+				if (file_exists($ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php'))
+					include $ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php';
+				else
+					include $ext_info['path'].'/lang/English/'.$ext_info['id'].'.php';
+			
+				$forum_page['item_count'] = 0;
+?>
+			<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
+				<legend class="group-legend"><span><?php echo $lang_quote_of_the_day['settings'] ?></span></legend>
+				<fieldset class="mf-set set<?php echo ++$forum_page['item_count'] ?>">
+				<legend><span><?php echo $lang_quote_of_the_day['settings'] ?></span></legend>
+					<div class="mf-box">
+						<div class="mf-item">
+							<span class="fld-input"><input type="radio" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[qotd_display_type]" value="ALWAYS"<?php if ($user['qotd_display_type'] == 'ALWAYS') echo ' checked="checked"' ?> /></span>
+							<label for="fld<?php echo $forum_page['fld_count'] ?>"><?php echo $lang_quote_of_the_day['always'] ?></label>
+						</div>
+						<div class="mf-item">
+							<span class="fld-input"><input type="radio" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[qotd_display_type]" value="ONCE"<?php if ($user['qotd_display_type'] == 'ONCE') echo ' checked="checked"' ?> /></span>
+							<label for="fld<?php echo $forum_page['fld_count'] ?>"><?php echo $lang_quote_of_the_day['once'] ?></label>
+						</div>
+						<div class="mf-item">
+							<span class="fld-input"><input type="radio" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[qotd_display_type]" value="NEVER"<?php if ($user['qotd_display_type'] == 'NEVER') echo ' checked="checked"' ?> /></span>
+							<label for="fld<?php echo $forum_page['fld_count'] ?>"><?php echo $lang_quote_of_the_day['never'] ?></label>
+						</div>
+					</div>
+				</legend>
+			</fieldset>
+<?php
+			]]>
+		</hook>
+		
+	</hooks>
+</extension>

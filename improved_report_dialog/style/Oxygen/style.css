@@ -1,0 +1,11 @@
+.reportedPostContainer
+{
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.noEdge
+{
+	margin: 0;
+	border: none;
+}

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<extension engine="1.0">
+	<id>bbcode_strikethrough</id>
+	<title>Strikethrough BBCode</title>
+	<version>1.1.0</version>
+	<description>Adds strikethrough tags.</description>
+	<author>Eliot Friedman</author>
+	<minversion>1.4.0</minversion>
+	<maxtestedon>1.4.1</maxtestedon>
+	<hooks>
+		<!-- EXTENSION FOR pun_bbcode -->
+		<!-- Include style information for the strikethrough tag button -->
+        <hook id="pun_bbcode_styles_loaded">
+			<![CDATA[
+				if ($forum_user['style'] != 'Oxygen' && file_exists($ext_info['path'].'/style/'.$forum_user['style'].'/style.css'))
+					$forum_loader->add_css($ext_info['url'].'/style/'.$forum_user['style'].'/style.css', array('type' => 'url'));
+				else
+					$forum_loader->add_css($ext_info['url'].'/style/Oxygen/style.css', array('type' => 'url'));
+			]]>
+		</hook>
+		
+		<!-- EXTENSION FOR pun_bbcode -->
+		<!-- Adds a button for the strikethrough tag to the bbcode bar object -->
+		<hook id="pun_bbcode_pre_buttons_output">
+			$this->add_button( array( 'name' => 'strikethrough', 'tag' => 's', 'group' => 'text-decoration', 'weight' => 36, 'image' => true ) );
+		</hook>
+
+		<!-- Add the pattern to match and replace content for the strikethrough tag -->				
+		<hook id='ps_do_bbcode_replace'>
+			<![CDATA[
+				$pattern[] = '#\[s\](.*?)\[/s\]#';
+				$replace[] = '<span style="text-decoration:line-through;">$1</span>';
+			]]>
+		</hook>
+		
+		<hook id='ps_preparse_tags_start'>
+			<![CDATA[
+				$tags[] = 's';
+				$tags_opened[] = 's';
+				$tags_closed[] = 's';
+			]]>
+		</hook>
+		
+		<!-- strikthrough tag example on bbcode help page -->
+		<hook id="he_new_bbcode_link">
+			<![CDATA[
+				// LANG INCLUDE
+				if (file_exists($ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php'))
+					include $ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php';
+				else
+					include $ext_info['path'].'/lang/English/'.$ext_info['id'].'.php';
+
+				?>
+				<div class="entry-content">
+					<code>[s]<?php echo $lang_bbcode_strikethrough['strikethrough_sample'] ?>[/s]</code> <span><?php echo $lang_help['produces'] ?></span>
+					<?php echo "<span>".$lang_bbcode_strikethrough['strikethrough_display']."</span>" ?>
+				</div><?php
+			]]>
+		</hook>
+	</hooks>
+</extension>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<extension engine="1.0">
+	<id>redirect_guest_to_login</id>
+	<title>Redirect Guests to Login</title>
+	<version>1.0.2</version>
+	<description>Redirects guests to the login page, and trims the login page header.</description>
+	<author>eliot.friedman@gmail.com</author>
+	<minversion>1.4.0</minversion>
+	<maxtestedon>1.4.2</maxtestedon>
+	<hooks>
+		<!-- bypass the "no permission" message -->
+		<hook id="in_start">
+			<![CDATA[
+				if ($forum_user['g_read_board'] == '0')
+					redirect( "$base_url/" . $forum_url['login'] );
+			]]>
+		</hook>
+	
+		<!-- any time the user is a guest, redirect to login page -->
+        <hook id="hd_head">
+			<![CDATA[
+				if ( $forum_user['is_guest'] )
+				{
+					$allowedPages  = array( 'login', 'reqpass', 'profile-changepass', 'register', 'rules', 'message', );
+									
+					if ( !in_array( FORUM_PAGE, $allowedPages ) )
+						redirect( "$base_url/" . $forum_url['login'] );
+						
+					$forum_loader->add_css( '#brd-head,#brd-navlinks,#brd-visit,#brd-crumbs-top,#brd-crumbs-end{display:none}#brd-about p{text-align:right}', array( 'type'=>'inline' ) );
+					
+					// LANG INCLUDE
+					if (file_exists($ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php'))
+						include $ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php';
+					else
+						include $ext_info['path'].'/lang/English/'.$ext_info['id'].'.php';
+						
+					// $lang_login does not exist on the reset password page
+					if ( isset( $lang_login ) )
+						$lang_login = array_merge( $lang_login, $redirect_guest_to_login );
+				}
+				
+				// always align the copyright notices to the right
+				$forum_loader->add_css( '#brd-about p{text-align:right}', array( 'type'=>'inline' ) );
+			]]>
+		</hook>
+	</hooks>
+</extension>

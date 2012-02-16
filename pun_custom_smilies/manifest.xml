@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<extension engine="1.0">
+	<id>pun_custom_smilies</id>
+	<title>Custom Smilies</title>
+	<version>1.0.1</version>
+	<description>Allows for custom smilies loaded from a database.</description>
+	<author>Eliot Friedman</author>
+	<minversion>1.4.0</minversion>
+	<maxtestedon>1.4.0</maxtestedon>
+    <install>
+        <![CDATA[ 	// Install code here
+            $schema = array(
+                'FIELDS'    => array(
+					'category'  => array(
+                        'datatype'      => 'INT',
+                        'allow_null'    => false
+                    ),
+                    'replace_text'  => array(
+                        'datatype'      => 'VARCHAR(50)',
+                        'allow_null'    => false
+                    ),
+					'alt_text'  => array(
+                        'datatype'      => 'VARCHAR(255)',
+                        'allow_null'    => false
+                    ),
+                    'smilie_file'  => array(
+                        'datatype'      => 'VARCHAR(50)',
+                        'allow_null'    => false
+                    ),
+                ),
+                'PRIMARY KEY'   => array('replace_text')
+            );
+            
+            $forum_db->create_table("custom_smilies", $schema);
+            
+            $schema = array(
+                'FIELDS'    => array(
+					'id'  => array(
+                        'datatype'      => 'INT',
+                        'allow_null'    => false
+                    ),
+                    'category_name'  => array(
+                        'datatype'      => 'VARCHAR(255)',
+                        'allow_null'    => false
+                    ),
+                ),
+                'PRIMARY KEY'   => array('category_name')
+            );
+            
+            $forum_db->create_table("custom_smilies_categories", $schema);
+        ]]> 
+    </install>
+    <uninstall>
+        <![CDATA[
+            $forum_db->drop_table("custom_smilies");
+            $forum_db->drop_table("custom_smilies_categories");
+        ]]>
+    </uninstall>
+	<hooks>
+		<hook id="hd_head"><![CDATA[
+			// EXTENSION: pun_custom_smilies
+			// Add a link to the smiley stylesheet at the top of the forums.
+			$forum_loader->add_css( $ext_info['url'].'/custom_smilies.css', array( 'type'=>'url' ) );
+			// END EXTENSION: pun_custom_smilies
+		]]></hook>
+		
+		<hook id="fn_generate_navlinks_end"><![CDATA[
+			// EXTENSION: pun_custom_smilies
+			// Add a link to the main navbar of the forums that goes to the viewsmilies page.
+			if ($forum_user['g_read_board'] == '1')
+				$links['smilies'] = '<li id="navextra"'.((FORUM_PAGE == 'viewsmilies') ? ' class="isactive"' : '').'><a href="'.forum_link($forum_url['viewsmilies']).'">Smilies</a></li>';
+			// END EXTENSION: pun_custom_smilies
+		]]></hook>
+	
+		<hook id="re_rewrite_rules"><![CDATA[
+			// EXTENSION: pun_custom_smilies
+			// Adds an action to the rewriterules to make forums_root/viewsmilies query misc.php
+			$forum_rewrite_rules['/^viewsmilies(\.php?|\/)?(.html?|\/)?$/i'] = 'misc.php?action=viewsmilies';
+			// END EXTENSION: pun_custom_smilies
+		]]></hook>
+		<hook id="co_modify_url_scheme"><![CDATA[
+			// EXTENSION: pun_custom_smilies
+			// This does something I'm not quite sure what, but it seems important.
+			if ($forum_config['o_sef'] == 'Default')
+			{
+				$forum_url['viewsmilies'] = 'misc.php?action=viewsmilies';
+			}
+			else if ($forum_config['o_sef'] == 'File_based' || $forum_config['o_sef'] == 'File_based_(fancy)')
+			{
+				$forum_url['viewsmilies'] = 'viewsmilies.html';
+			}
+			else if ($forum_config['o_sef'] == 'Folder_based' || $forum_config['o_sef'] == 'Folder_based_(fancy)')
+			{
+				$forum_url['viewsmilies'] = 'viewsmilies/';
+			}
+			// END EXTENSION: pun_custom_smilies
+		]]></hook>
+	
+        <hook id="ps_start"><![CDATA[
+			// EXTENSION: pun_custom_smilies
+			// Get all the smilies from the DB, and dump them into
+			// "$smilies"
+			$query = array(
+				'SELECT'	=> '*',
+				'FROM'		=> 'custom_smilies'
+			);
+			
+			$result = $forum_db->query_build($query);
+			
+			$smilies = array();
+			
+			while ($current_row = $forum_db->fetch_assoc($result))
+				$smilies[] = $current_row;
+			// END EXTENSION: pun_custom_smilies
+		]]></hook>
+		
+		<hook id="ps_do_smilies_start"><![CDATA[
+			// EXTENSION: pun_custom_smilies
+			// Actually parse/replace the smilies.
+			$text = ' '.$text.' ';
+
+			foreach ($smilies as $smilie)
+			{
+				if (strpos($text, $smilie['replace_text']) !== false)
+					$text = preg_replace("#(?<=[>\s])".preg_quote($smilie['replace_text'], '#')."(?=\W)#m", '<img style="padding: 0px; margin: 0px;" src="'.$base_url.'/img/smilies/'.$smilie['smilie_file'].'" title="'.stripslashes($smilie['alt_text']).'" alt="'.stripslashes($smilie['alt_text']).'" />', $text);
+			}
+			
+			$return = ($hook = get_hook('ps_do_smilies_end')) ? eval($hook) : null;
+
+			return substr($text, 1, -1);
+			// END EXTENSION: pun_custom_smilies
+		]]></hook>
+		
+		<hook id="pun_bbcode_pre_smilies_output"><![CDATA[
+			// EXTENSION: pun_custom_smilies
+			// We really don't want up to a jillion smilies appearing on
+			// the bbcode bar, and it doesn't know how to properly parse
+			// them anyway, so let's just clear it.
+			$smilies = array();
+			// END EXTENSION: pun_custom_smilies
+		]]></hook>
+		
+		<hook id="mi_new_action"><![CDATA[
+			// EXTENSION: pun_custom_smilies
+			// If someone requests the viewsmilies page...
+			// give it to them.
+			if ($action == 'viewsmilies')
+				require $ext_info['path']."/viewsmilies.php";
+			// END EXTENSION: pun_custom_smilies
+		]]></hook>
+		
+		<hook id="po_pre_header_load, ed_pre_header_load"><![CDATA[
+			// EXTENSION: pun_custom_smilies
+			// Since the help page for smilies gets clobbered by this
+			// extension, let's slyly sneak replace the link to it with
+			// a link to our viewsmilies page.
+			if ($forum_config['o_smilies'] == '1')
+				$forum_page['text_options']['smilies'] = '<span'.(empty($forum_page['text_options']) ? ' class="first-item"' : '').'><a class="exthelp" href="'.forum_link($forum_url['viewsmilies']).'" title="'.sprintf($lang_common['Help page'], $lang_common['Smilies']).'">'.$lang_common['Smilies'].'</a></span>';
+			// END EXTENSION: pun_custom_smilies
+		]]></hook>
+	</hooks>
+</extension>

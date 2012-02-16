@@ -1,0 +1,4 @@
+#pun_bbcode_bar input[name="book"].image
+{
+	background: url(img/book.png) 0 0 no-repeat;
+}

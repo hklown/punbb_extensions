@@ -1,0 +1,4 @@
+#pun_bbcode_bar input[name="spoiler"].image
+{
+	background: url(img/spoiler.png) 0 0 no-repeat;
+}

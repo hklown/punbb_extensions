@@ -1,0 +1,4 @@
+#pun_bbcode_bar input[name="strikethrough"].image
+{
+	background: url(img/strikethrough.png) 0 0 no-repeat;
+}

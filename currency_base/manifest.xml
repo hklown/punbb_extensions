@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<extension engine="1.0">
+	<id>currency_base</id>
+	<title>Currency Mod: Base</title>
+	<version>0.0.1</version>
+	<description>Adds a currency system to the forum.</description>
+	<author>Eliot Friedman</author>
+	<minversion>1.4.0</minversion>
+	<maxtestedon>1.4.0</maxtestedon>
+	<install>
+		<![CDATA[
+		// Fresh install
+		if (!defined('EXT_CUR_VERSION'))
+		{
+			$query = array(
+				'INSERT'	=> 'conf_name, conf_value',
+				'INTO'		=> 'config',
+				'VALUES'	=> "'o_currency_name', 'Credits'"
+			);
+			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+			$forum_db->add_field('users', 'currency_balance', 'INT', false, 0);
+		}
+		]]>
+	</install>
+	<uninstall>
+		<![CDATA[
+			$query = array(
+				'DELETE'	=> 'config',
+				'WHERE'		=> 'conf_name = \'o_currency_name\''
+			);
+			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+			$forum_db->drop_field('users', 'currency_balance');
+		]]>
+	</uninstall>
+	<hooks>
+		<!-- Load the helper functions at the start of the forum -->
+		<hook id="es_essentials">
+			<![CDATA[
+				require_once($ext_info['path'].'/include/functions.php');
+			]]>
+		</hook>
+
+		<!-- Insert some values in to the $forum_urls array for later use -->
+		<hook id="co_modify_url_scheme">
+			<![CDATA[
+              if (file_exists($ext_info['path'].'/include/url/'.$forum_config['o_sef'].'/forum_urls.php'))
+                require $ext_info['path'].'/include/url/'.$forum_config['o_sef'].'/forum_urls.php';
+              else
+                require $ext_info['path'].'/include/url/Default/forum_urls.php';
+            ]]>
+		</hook>
+
+		<!-- Load the language file in the header of the forum -->
+		<hook id="hd_head, pf_start, aop_start, ca_fn_generate_admin_menu_start">
+			<![CDATA[
+				// LANG INCLUDE
+				if (file_exists($ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php'))
+					include $ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php';
+				else
+					include $ext_info['path'].'/lang/English/'.$ext_info['id'].'.php';
+			]]>
+		</hook>
+
+		<!-- Show the user's balance in their profile -->
+		<hook id="pf_view_details_pre_header_load">
+			<![CDATA[
+				if ( $forum_page['own_profile'] )
+					$forum_page['user_info']['balance'] = '<li><span>'.CurrencyIcon().' <strong>'.$user['currency_balance'].'</strong></span></li>';
+			]]>
+		</hook>
+		<hook id="pf_change_details_about_pre_header_load">
+			<![CDATA[
+				$forum_page['user_info']['balance'] = '<li><span>'.CurrencyIcon().' <strong>'.$user['currency_balance'].'</strong></span></li>';
+			]]>
+		</hook>
+
+		<!-- Manually update the user's currency in the database when an administrator changes it -->
+		<hook id="pf_change_details_database_validation">
+			<![CDATA[
+				if ( isset($form['currency_balance']) )
+				{
+					SetCurrency( $form['username'], $form['currency_balance'], $forum_user['username'] );
+					unset( $form['currency_balance'] );
+				}
+			]]>
+		</hook>
+
+		<!-- Validate the user's new currency if the administrator changed it -->
+		<hook id="pf_change_details_identity_validation">
+			<![CDATA[
+				// only validate the new balance if the user changing it is an administrator
+				if ($forum_user['g_id'] == FORUM_ADMIN)
+				{
+					// and only if it contains *only* digits
+					$newBalance = forum_trim($_POST['currency_balance']);
+					if ( $newBalance == '' || !ctype_digit( $newBalance ) )
+						$errors[] = $lang_currency_base['Invalid Currency Assignment'];
+					else
+						$form['currency_balance'] = $newBalance;
+				}
+			]]>
+		</hook>
+
+		<!-- Allow administrators to set a user's balance in their profile -->
+		<hook id="pf_change_details_identity_pre_admin_note">
+			<![CDATA[
+				if ($forum_user['g_id'] == FORUM_ADMIN)
+				{
+				?>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+					<div class="sf-box text">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_currency_base['Edit Currency'] ?></span></label><br />
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="currency_balance" value="<?php echo $user['currency_balance'] ?>" size="8" maxlength="8" /></span>
+					</div>
+				</div>
+				<?php
+				}
+			]]>
+		</hook>
+
+		<!-- Add a link in the ACP settings tab to the currency configuration page -->
+		<hook id="ca_fn_generate_admin_menu_new_sublink">
+			<![CDATA[
+				if (FORUM_PAGE_SECTION == 'settings')
+					$forum_page['admin_submenu']['currency'] = '<li class="'.((FORUM_PAGE == 'admin-settings-currency') ? 'active' : 'normal').((empty($forum_page['admin_submenu'])) ? ' first-item' : '').'"><a href="'.forum_link($forum_url['admin_settings_currency']).'">'.$lang_currency_base['AOP Currency Tab'].'</a></li>';
+			]]>
+		</hook>
+		
+		<!-- Validate info on the currency page before updating it in the DB -->
+		<hook id="aop_new_section_validation">
+			<![CDATA[
+				if ( $section == 'currency' )
+				{
+					// don't allow the user to set the currency name to blank
+					if ( forum_trim($form['currency_name']) == '' )
+					{
+						unset( $form['currency_name'] );
+						redirect($forum_url['admin_settings_currency'], $lang_currency_base['Invalid currency name']);
+						//$errors[] = $lang_currency_base['Invalid currency name'];
+					}
+				}
+			]]>
+		</hook>
+		
+		<!-- New section in ACP settings for currency configuration -->
+		<hook id="aop_new_section">
+			<![CDATA[
+				if ( $section == 'currency' )
+				{
+					// Setup the form
+					$forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'] = 0;
+
+					// Setup breadcrumbs
+					$forum_page['crumbs'] = array(
+						array($forum_config['o_board_title'], forum_link($forum_url['index'])),
+						array($lang_admin_common['Forum administration'], forum_link($forum_url['admin_index'])),
+						array($lang_admin_common['Settings'], forum_link($forum_url['admin_settings_setup'])),
+						array($lang_currency_base['AOP Currency Tab'], forum_link($forum_url['admin_settings_currency']))
+					);
+
+					($hook = get_hook('aop_currency_pre_header_load')) ? eval($hook) : null;
+
+					define('FORUM_PAGE_SECTION', 'settings');
+					define('FORUM_PAGE', 'admin-settings-currency');
+					require FORUM_ROOT.'header.php';
+
+					// START SUBST - <!-- forum_main -->
+					ob_start();
+
+					($hook = get_hook('aop_currency_output_start')) ? eval($hook) : null;
+
+?>
+<div class="main-content main-frm">
+<?php
+					if (!empty($errors))
+					{
+						$forum_page['errors'] = array();
+						foreach ($errors as $cur_error)
+							$forum_page['errors'][] = '<li class="warn"><span>'.$cur_error.'</span></li>';
+?>
+	<div class="ct-box error-box">
+		<h2 class="warn hn"><?php echo $lang_currency_base['Change currency errors'] ?></h2>
+		<ul class="error-list">
+			<?php echo implode("\n\t\t\t\t", $forum_page['errors'])."\n" ?>
+		</ul>
+	</div>
+<?php
+					}
+?>
+	<form class="frm-form" method="post" accept-charset="utf-8" enctype="multipart/form-data" action="<?php echo forum_link($forum_url['admin_settings_currency']) ?>">
+		<div class="hidden">
+			<input type="hidden" name="csrf_token" value="<?php echo generate_form_token(forum_link($forum_url['admin_settings_currency'])) ?>" />
+			<input type="hidden" name="form_sent" value="1" />
+		</div>
+			<div class="content-head">
+				<h2 class="hn"><span><?php echo $lang_currency_base['Setup currency'] ?></span></h2>
+			</div>
+			<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
+				<legend class="group-legend"><strong><?php echo $lang_currency_base['Setup currency legend'] ?></strong></legend>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+					<div class="sf-box text">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>">
+							<span><?php echo $lang_currency_base['Currency name label'] ?></span>
+						</label><br />
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[currency_name]" size="25" maxlength="255" value="<?php echo forum_htmlencode($forum_config['o_currency_name']) ?>" /></span>
+					</div>
+				</div>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+					<div class="sf-box text">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>">
+							<span><?php echo $lang_currency_base['Currency icon label'] ?></span>
+						</label><br />
+						<span class="fld-input"><?php echo CurrencyIcon(false); ?></span>
+					</div>
+				</div>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+					<div class="sf-box text">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>">
+							<span><?php echo $lang_currency_base['Delete currency icon label']; ?></span>
+						</label><br />
+						<span class="fld-input">
+							<?php
+								if ( UserHasCustomCurrencyIcon() )
+									echo '<a href="'.forum_link($forum_url['delete_currency_icon'], array($forum_user['id'], generate_form_token('delete_currency_icon'.$forum_user['id']))).'"><strong>'.$lang_currency_base['Delete currency icon'].'</strong></a>';
+								else
+									echo '<strong>'.$lang_currency_base['No Currency icon to delete'].'</strong>';
+							?>
+						</span>
+					</div>
+				</div>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+					<div class="sf-box text">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>">
+							<span><?php echo $lang_currency_base['Upload new Currency icon label']; ?></span>
+							<small>
+								<ul class="info-list">
+									<li><?php echo $lang_currency_base['Currency icon replace warning'] ?></li>
+									<li><?php echo $lang_currency_base['Allowed filetypes'] ?></li>
+									<li><?php echo $lang_currency_base['Currency icon constraints'] ?></li>
+								</ul>
+							</small>
+						</label><br />
+						<span class="fld-input">
+							<input type="hidden" name="MAX_FILE_SIZE" value="5000" />
+							<input id="fld<?php echo $forum_page['fld_count'] ?>" name="req_file" type="file" size="40" />
+						</span>
+					</div>
+				</div>
+			</fieldset>
+		<div class="frm-buttons">
+			<span class="submit"><input type="submit" name="save" value="<?php echo $lang_admin_common['Save changes'] ?>" /></span>
+		</div>
+	</form>
+</div>
+<?php
+				}
+			]]>
+		</hook>
+		
+		<!-- Takes care of any special actions that would happen before the currency config page renders -->
+		<hook id="aop_currency_pre_header_load">
+            <![CDATA[
+                if ( $section == 'currency' )
+                {
+                    $action = isset($_GET['action']) ? $_GET['action'] : null;
+
+                    switch ($action)
+                    {
+                        case 'delete_currency_icon':
+                        {
+							if ( $forum_user['g_id'] != FORUM_ADMIN )
+								message($lang_common['No permission']);
+								
+							if (!isset($_POST['csrf_token']) && (!isset($_GET['csrf_token']) || $_GET['csrf_token'] !== generate_form_token('delete_currency_icon'.$forum_user['id'])))
+								csrf_confirm_form();
+		
+							DeleteCustomCurrencyIcon();
+		
+                            break;
+                        }
+                        default:
+                        {
+                            break;
+                        }
+                    }
+                }
+            ]]>
+		</hook>
+	</hooks>
+</extension>

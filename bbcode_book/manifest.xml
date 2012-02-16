@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<extension engine="1.0">
+	<id>bbcode_book</id>
+	<title>Book BBCode</title>
+	<version>1.0.0</version>
+	<description>Adds a book tag, which can displays information about a book by ISBN.</description>
+	<author>Eliot Friedman</author>
+	<minversion>1.4.0</minversion>
+	<maxtestedon>1.4.1</maxtestedon>
+    <install>
+        <![CDATA[
+			// Fresh install
+			if (!defined('EXT_CUR_VERSION'))
+				{
+				// Install code here
+				// create book cache
+				$schema = array(
+					'FIELDS'    => array(
+						'isbn'  => array(
+							'datatype'      => 'VARCHAR(13)',
+							'allow_null'    => false
+						),
+						'title'  => array(
+							'datatype'      => 'TEXT',
+							'allow_null'    => false
+						),
+						'full_title'  => array(
+							'datatype'      => 'TEXT',
+							'allow_null'    => false
+						),
+						'author'  => array(
+							'datatype'      => 'TEXT',
+							'allow_null'    => false
+						),
+						'summary'  => array(
+							'datatype'      => 'TEXT',
+							'allow_null'    => false
+						),
+					),
+					'PRIMARY KEY'   => array('isbn')
+				);
+				$forum_db->create_table("book_cache", $schema);
+				
+				// insert the config value to store the ISBNdb key in the
+				// config table
+				$query = array(
+					'INSERT'    => 'conf_name, conf_value',
+					'INTO'      => 'config',
+					'VALUES'    => "'e_booktag_isbndbkey', ''"
+				);
+				$forum_db->query_build($query) or error(__FILE__, __LINE__);
+            }
+        ]]> 
+    </install>
+    <uninstall>
+        <![CDATA[
+			// clear the book cache
+            $forum_db->drop_table("book_cache");
+            
+            // remove the isbndb key from the config table
+			$query = array(
+                'DELETE'    => 'config',
+                'WHERE'     => 'conf_name = \'e_booktag_isbndbkey\''
+            );
+            $forum_db->query_build($query) or error(__FILE__, __LINE__);
+        ]]>
+    </uninstall>
+	<hooks>
+		<!-- EXTENSION FOR pun_bbcode -->
+		<!-- Include style information for the spoiler tag button -->
+        <hook id="pun_bbcode_styles_loaded">
+			<![CDATA[
+				if ($forum_user['style'] != 'Oxygen' && file_exists($ext_info['path'].'/style/'.$forum_user['style'].'/style.css'))
+					$forum_loader->add_css($ext_info['url'].'/style/'.$forum_user['style'].'/bbcode_button.css', array('type' => 'url'));
+				else
+					$forum_loader->add_css($ext_info['url'].'/style/Oxygen/bbcode_button.css', array('type' => 'url'));
+			]]>
+		</hook>
+		
+		<!-- EXTENSION FOR pun_bbcode -->
+		<!-- Adds a button for the spoiler tag to the bbcode bar object -->
+		<hook id="pun_bbcode_pre_buttons_output">
+			$this->add_button( array( 'name' => 'book', 'weight' => 62, 'image' => true ) );
+		</hook>
+		
+		<!-- CSS & Language includes -->
+		<hook id="es_essentials">
+            <![CDATA[
+                // CSS
+                if ($forum_user['style'] != 'Oxygen' && file_exists($ext_info['path'].'/style/'.$forum_user['style'].'/style.css'))
+                    $forum_loader->add_css($ext_info['url'].'/style/'.$forum_user['style'].'/style.css', array('type' => 'url'));
+                else
+                    $forum_loader->add_css($ext_info['url'].'/style/Oxygen/style.css', array('type' => 'url'));
+                    
+                // LANGUAGE
+                if (file_exists($ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php'))
+                    include $ext_info['path'].'/lang/'.$forum_user['language'].'/'.$ext_info['id'].'.php';
+                else
+                    include $ext_info['path'].'/lang/English/'.$ext_info['id'].'.php';
+
+                require_once $ext_info['path'].'/include/functions.php';
+            ]]>
+		</hook>
+		
+		<!-- Define the usage rules for the tag. -->
+		<hook id='ps_do_bbcode_replace'>
+			<![CDATA[
+				$pattern[] = '#\[book\](.+)\[/book\]#e';
+				$replace[] = 'getBookInfoByISBN(\'$1\')';
+			]]>
+		</hook>
+		
+		<!-- Define the open/close tags for this extension. -->
+		<hook id='ps_preparse_tags_start'>
+			<![CDATA[
+				$tags[] = 'book';
+				$tags_opened[] = 'book';
+				$tags_closed[] = 'book';
+			]]>
+		</hook>
+		
+		<!-- Adds the help info for this extension to the bbcode help page. -->
+		<hook id="he_new_bbcode_link">
+			<![CDATA[
+				?>
+				<div class="entry-content">
+					<code>[spoiler]<?php echo $lang_bbcode_book['help sample'] ?>[/spoiler]</code> <span><?php echo $lang_help['produces'] ?></span>
+					<?php echo "<span>".$lang_bbcode_book['help display']."</span>" ?>
+				</div>
+				<?php
+			]]>
+		</hook>
+	</hooks>
+</extension>
