@@ -2,8 +2,9 @@
 	// smash the cache of the config table, so $forum_config is updated properly
 	if ( file_exists( FORUM_CACHE_DIR.'cache_config.php' ) )
 		unlink( FORUM_CACHE_DIR.'cache_config.php' );
-
-    define( "BOOK_DISPLAY_TEMPLATE", GetBookDisplayTemplate() );
+    
+    if ( FORUM_PAGE != 'message')
+        define( "BOOK_DISPLAY_TEMPLATE", GetBookDisplayTemplate() );
 
     // returns information about a book by it's isbn number
     function getBookInfoByISBN( $isbn = '' )
