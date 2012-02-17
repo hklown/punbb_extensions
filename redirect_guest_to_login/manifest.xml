@@ -13,7 +13,7 @@
 		<hook id="in_start">
 			<![CDATA[
 				if ($forum_user['g_read_board'] == '0')
-					redirect( "$base_url/" . $forum_url['login'] );
+					redirect( "$base_url/" . $forum_url['login'], '' );
 			]]>
 		</hook>
 	
@@ -25,7 +25,7 @@
 					$allowedPages  = array( 'login', 'reqpass', 'profile-changepass', 'register', 'rules', 'message', );
 									
 					if ( !in_array( FORUM_PAGE, $allowedPages ) )
-						redirect( "$base_url/" . $forum_url['login'] );
+						redirect( "$base_url/" . $forum_url['login'], '' );
 						
 					$forum_loader->add_css( '#brd-head,#brd-navlinks,#brd-visit,#brd-crumbs-top,#brd-crumbs-end{display:none}#brd-about p{text-align:right}', array( 'type'=>'inline' ) );
 					
