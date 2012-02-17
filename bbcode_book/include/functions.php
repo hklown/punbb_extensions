@@ -17,7 +17,7 @@
         if ( !IsValidISBN( $isbn ) )
             return errorMessage( $isbn, $lang_bbcode_book['invalid isbn'] );
            
-        if ( !array_key_exists( 'e_booktag_isbndbkey', $forum_config ) || $forum_config['e_booktag_isbndbkey'] == '' )
+        if ( !array_key_exists( 'o_booktag_isbndbkey', $forum_config ) || $forum_config['o_booktag_isbndbkey'] == '' )
             return errorMessage( $isbn, $lang_bbcode_book['isbndb key not set'] );
             
         return BookInfo( $isbn );
@@ -74,7 +74,7 @@
     {
         global $forum_config;
     
-        $request_url = 'https://isbndb.com/api/books.xml?access_key='.$forum_config['e_booktag_isbndbkey'].'&results=texts&index1=isbn&value1='.$isbn;
+        $request_url = 'https://isbndb.com/api/books.xml?access_key='.$forum_config['o_booktag_isbndbkey'].'&results=texts&index1=isbn&value1='.$isbn;
         $response = simplexml_load_string(get_content($request_url));
         
         $book = array();
